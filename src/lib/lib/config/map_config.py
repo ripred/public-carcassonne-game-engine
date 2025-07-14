@@ -61,5 +61,5 @@ TILE_EXTERNAL_POS: dict[str, Callable[[int, int], tuple[int, int]]] = {
     "top_edge": lambda x, y: (x, y - 1),
     "right_edge": lambda x, y: (x + 1, y),
     "bottom_edge": lambda x, y: (x, y + 1),
-    "left_edge": lambda x, y: (x - 1, y - 1),
+    "left_edge": lambda x, y: (x - 1, y),
 }
