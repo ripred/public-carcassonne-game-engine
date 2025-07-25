@@ -3,6 +3,7 @@ from engine.config.game_config import NUM_PLAYERS
 from engine.game.tile_subscriber import TilePublisherBus
 from engine.state.player_state import PlayerState
 from engine.config.io_config import CORE_DIRECTORY
+from pathlib import Path
 
 from lib.game.game_logic import GameLogic
 from lib.interact.tile import Tile
@@ -14,8 +15,12 @@ import json
 
 class GameState(GameLogic):
     def __init__(self) -> None:
-        with open(f"{CORE_DIRECTORY}/input/catalog.json", "r") as f:
-            self.catalog = json.load(f)
+        catalog_path = Path(CORE_DIRECTORY) / "input" / "catalog.json"
+        if catalog_path.exists():
+            with open(catalog_path, "r") as f:
+                self.catalog = json.load(f)
+        else:
+            self.catalog = [{"team_id": i} for i in range(NUM_PLAYERS)]
 
         self.round = -1
         self.players: dict[int, PlayerState] = {
