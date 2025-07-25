@@ -1,5 +1,5 @@
 from lib.config.map_config import MONASTARY_IDENTIFIER, tile_counts
-from lib.config.scoring import NO_POINTS
+from lib.config.scoring import EMBLEM_PARTIAL_POINTS, EMBLEM_POINTS, NO_POINTS
 from lib.interact.structure import StructureType
 from lib.interact.meeple import Meeple
 
@@ -28,6 +28,7 @@ class TileModifier(Enum):
     BROKEN_ROAD_CENTER = auto()
     OPP_ROAD_BRIDGE = auto()
     OPP_CITY_BRIDGE = auto()
+    BROKEN_CITY = auto()
 
     @final
     @staticmethod
@@ -39,22 +40,31 @@ class TileModifier(Enum):
 
     @final
     @staticmethod
-    def apply_point_modifiers(structure: StructureType) -> int:
-        def _get_point_modifiers(structure: StructureType) -> list["TileModifier"]:
+    def apply_point_modifiers(
+        tile: "Tile", s: StructureType, points: int, partial: bool = False
+    ) -> int:
+        def _point_modifier_config(_mod: "TileModifier") -> Callable[[int], int]:
             return {
-                StructureType.CITY: [TileModifier.OPP_CITY_BRIDGE],
-            }.get(structure, [])
+                TileModifier.EMBLEM: lambda x: x + EMBLEM_POINTS,
+            }.get(_mod, lambda x: x + NO_POINTS)
 
-        def _point_modifier_config(tm: "TileModifier") -> Callable[[int], int]:
+        def _point_modifier_config_partial(
+            _mod: "TileModifier",
+        ) -> Callable[[int], int]:
             return {
-                TileModifier.MONASTARY: lambda x: x + 9,
-                TileModifier.EMBLEM: lambda x: x + 2,
-            }.get(tm, lambda x: x + NO_POINTS)
+                TileModifier.EMBLEM: lambda x: x + EMBLEM_PARTIAL_POINTS,
+            }.get(_mod, lambda x: x + NO_POINTS)
 
-        points: int = StructureType.get_points(structure)
+        def _apply_mod(mod: "TileModifier", partial: bool, points: int) -> int:
+            if partial:
+                return _point_modifier_config_partial(mod)(points)
 
-        for mod in _get_point_modifiers(structure):
-            points = _point_modifier_config(mod)(points)
+            return _point_modifier_config(mod)(points)
+
+        match s:
+            case StructureType.CITY:
+                if TileModifier.EMBLEM in tile.modifiers:
+                    points = _apply_mod(TileModifier.EMBLEM, partial, points)
 
         return points
 
@@ -229,6 +239,19 @@ class Tile:
     def __repr__(self) -> str:
         return f"Tile {self.tile_type} - {self.placed_pos}"
 
+    def straight_river(self):
+        top_bottom = (
+            self.internal_edges.top_edge
+            == self.internal_edges.bottom_edge
+            == StructureType.RIVER
+        )
+        left_right = (
+            self.internal_edges.right_edge
+            == self.internal_edges.left_edge
+            == StructureType.RIVER
+        )
+        return top_bottom or left_right
+
 
 def create_river_tiles() -> list["Tile"]:
     """
@@ -347,6 +370,7 @@ def create_base_tiles() -> list["Tile"]:
             right_edge=StructureType.GRASS,
             top_edge=StructureType.GRASS,
             bottom_edge=StructureType.ROAD_START,
+            modifiers=[TileModifier.MONASTARY],
         ).clone_add(tile_counts.A)
     )
 
@@ -382,6 +406,7 @@ def create_base_tiles() -> list["Tile"]:
             right_edge=StructureType.CITY,
             top_edge=StructureType.ROAD,
             bottom_edge=StructureType.ROAD,
+            modifiers=[TileModifier.OPP_ROAD_BRIDGE],
         ).clone_add(tile_counts.D)
     )
 
@@ -439,6 +464,7 @@ def create_base_tiles() -> list["Tile"]:
             right_edge=StructureType.CITY,
             top_edge=StructureType.GRASS,
             bottom_edge=StructureType.CITY,
+            modifiers=[TileModifier.BROKEN_CITY],
         ).clone_add(tile_counts.I)
     )
 
@@ -575,6 +601,7 @@ def create_base_tiles() -> list["Tile"]:
             right_edge=StructureType.GRASS,
             top_edge=StructureType.ROAD,
             bottom_edge=StructureType.ROAD,
+            modifiers=[TileModifier.OPP_ROAD_BRIDGE],
         ).clone_add(tile_counts.U)
     )
 

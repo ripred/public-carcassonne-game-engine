@@ -10,7 +10,7 @@ from lib.interface.events.event_game_ended import (
 )
 from lib.interface.events.event_player_bannned import EventPlayerBanned
 from lib.interface.events.event_player_won import EventPlayerWon
-from lib.interface.events.typing import EventType
+from lib.interface.events.typing import EventPlayerMeepleFreed, EventType
 from lib.interface.events.event_game_started import EventGameStarted
 from lib.interface.events.event_river_phase_completed import EventRiverPhaseCompleted
 from lib.interface.events.event_tile_placed import (
@@ -26,11 +26,11 @@ from pydantic import RootModel
 
 class EventInspector:
     def __init__(
-        self, history: list[EventType], points: dict[int, int], rankings: list[int]
+        self, history: list[EventType], score: dict[int, int], ranking: list[int]
     ) -> None:
         self.history = history
-        self.points = points
-        self.rankings = rankings
+        self.score = score
+        self.ranking = ranking
 
     def get_result(
         self,
@@ -45,7 +45,7 @@ class EventInspector:
                     ban_type=e.ban_type, player=e.player_id, reason=e.reason
                 )
             case EventPlayerWon():
-                return GameSuccessResult(rankings=self.rankings, points=self.points)
+                return GameSuccessResult(ranking=self.ranking, score=self.score)
             case _:
                 return GameCrashedResult(reason="Game engine crashed.")
 
@@ -69,6 +69,9 @@ class EventInspector:
                     visualiser_json.append(e)
 
                 case MovePlaceMeeple() as e:
+                    visualiser_json.append(e)
+
+                case EventPlayerMeepleFreed() as e:
                     visualiser_json.append(e)
 
         return RootModel(visualiser_json).model_dump_json()

@@ -30,8 +30,6 @@ from lib.interface.events.moves.typing import MoveType
 from lib.config.map_config import MAX_MAP_LENGTH
 from lib.config.map_config import MONASTARY_IDENTIFIER
 from lib.interact.structure import StructureType
-
-
 from helper.utils import print_map
 
 
@@ -40,6 +38,7 @@ class BotState:
 
     def __init__(self):
         self.last_tile: Tile | None = None
+        self.meeples_placed: int = 0
 
 
 def main():
@@ -91,7 +90,8 @@ def handle_place_tile(
     latest_tile = game.state.map.placed_tiles[-1]
     latest_pos = latest_tile.placed_pos
 
-    print(game.state.my_tiles)
+    print("Round:", game.state.round)
+    print(game.state.event_history)
     assert latest_pos
 
     # Try to place a tile adjacent to the latest tile
@@ -119,62 +119,13 @@ def handle_place_tile(
             # Cheeck if this is a river tile
             # Try placing the tile at this position by rotating it
 
-            print_map(game.state.map._grid, range(75, 96))
+            # print_map(game.state.map._grid, range(75, 96))
 
             if game.can_place_tile_at(tile_in_hand, target_x, target_y):
                 if river_flag:
-                    uturn_check = False
                     print(tile_in_hand.internal_edges[edge])
                     if tile_in_hand.internal_edges[edge] != StructureType.RIVER:
                         continue
-
-                    for tile_edge in tile_in_hand.get_edges():
-                        if (
-                            tile_edge == edge
-                            or tile_in_hand.internal_edges[tile_edge]
-                            != StructureType.RIVER
-                        ):
-                            continue
-                        forcast_coordinates_one = {
-                            "top_edge": (0, -1),
-                            "right_edge": (1, 0),
-                            "bottom_edge": (0, 1),
-                            "left_edge": (-1, 0),
-                        }
-
-                        extension = forcast_coordinates_one[tile_edge]
-                        forecast_x = target_x + extension[0]
-                        forecast_y = target_y + extension[1]
-                        print(forecast_x, forecast_y)
-                        for coords in forcast_coordinates_one.values():
-                            checking_x = forecast_x + coords[0]
-                            checking_y = forecast_y + coords[1]
-                            if checking_x != target_x or checking_y != target_y:
-                                if grid[checking_y][checking_x] is not None:
-                                    print("direct uturn")
-                                    uturn_check = True
-
-                        forcast_coordinates_two = {
-                            "top_edge": (0, -2),
-                            "right_edge": (2, 0),
-                            "bottom_edge": (0, 2),
-                            "left_edge": (-2, 0),
-                        }
-                        extension = forcast_coordinates_two[tile_edge]
-
-                        forecast_x = target_x + extension[0]
-                        forecast_y = target_y + extension[1]
-                        for coords in forcast_coordinates_one.values():
-                            checking_x = forecast_x + coords[0]
-                            checking_y = forecast_y + coords[1]
-                            if grid[checking_y][checking_x] is not None:
-                                print("future uturn")
-                                uturn_check = True
-
-                    if uturn_check:
-                        tile_in_hand.rotate_clockwise(1)
-                        if tile_in_hand.internal_edges[edge] != StructureType.RIVER:
-                            tile_in_hand.rotate_clockwise(2)
 
                 bot_state.last_tile = tile_in_hand
                 bot_state.last_tile.placed_pos = (target_x, target_y)
@@ -213,23 +164,30 @@ def handle_place_meeple(
         "left_edge",  # edges
     ]
 
+    if bot_state.meeples_placed == 7:
+        print("no meeple :(")
+        return game.move_place_meeple_pass(query)
+
     for edge in placement_priorities:
         # Check if this edge has a valid structure and is unclaimed
         if edge == MONASTARY_IDENTIFIER:
+            print("looking for monastary")
             # Check if tile has monastery and it's unclaimed
             if (
                 hasattr(recent_tile, "modifiers")
-                and any(mod.name == "MONESTERY" for mod in recent_tile.modifiers)
-                and recent_tile.internal_claims.get(MONASTARY_IDENTIFIER) is None
+                and any(mod.name == "MONESTARY" for mod in recent_tile.modifiers)
+                # and recent_tile.internal_claims.get(MONASTARY_IDENTIFIER) is None
             ):
-                assert bot_state.last_tile
+                print("found monastary")
+                # assert bot_state.last_tile
                 print(
-                    "[ ERROR ] M ",
+                    "[ Placed meeple ] M ",
                     recent_tile,
                     edge,
-                    bot_state.last_tile.internal_edges[edge],
+                    # bot_state.last_tile.internal_edges[edge],
                     flush=True,
                 )
+                bot_state.meeples_placed += 1
                 return game.move_place_meeple(
                     query, recent_tile._to_model(), MONASTARY_IDENTIFIER
                 )
@@ -241,23 +199,39 @@ def handle_place_meeple(
                     bot_state.last_tile._to_model()
                 ).items()
             )
+            print("structurees: ", structures)
+            # e, structure = structures[0] if structures else None, None
+            # print("e: ", e)
+            # print("structure:", structure)
 
-            e, structure = structures[0] if structures else None, None
+            if recent_tile.internal_claims.get(edge) is None:
+                print("Edge bot is looking at:", edge)
+                # print("structure type, ", bot_state.last_tile.internal_edges[edge])
+                # # Check if the structure is actually unclaimed (not connected to claimed structures)
+                # print("from game state get claims: ", game.state._get_claims(recent_tile, edge))
+                # print("river check: ", bot_state.last_tile.internal_edges[edge] != StructureType.RIVER)
+                # print("grass check: ", )
 
-            if structure and e and recent_tile.internal_claims.get(edge) is None:
-                # Check if the structure is actually unclaimed (not connected to claimed structures)
-                if not game.state._get_claims(recent_tile, e):
+                if (
+                    not game.state._get_claims(recent_tile, edge)
+                    and not game.state._check_completed_component(recent_tile, edge)
+                    and bot_state.last_tile.internal_edges[edge] != StructureType.RIVER
+                    and bot_state.last_tile.internal_edges[edge] != StructureType.GRASS
+                ):
                     print(
-                        "[ ERROR ] ",
+                        "[ Placed meeple ] ",
                         recent_tile,
                         edge,
                         bot_state.last_tile.internal_edges[edge],
                         flush=True,
                     )
+                    bot_state.meeples_placed += 1
                     return game.move_place_meeple(query, recent_tile._to_model(), edge)
 
     # No valid placement found, pass
     print("[ ERROR ] ", flush=True)
+    print_map(game.state.map._grid, range(75, 96))
+
     return game.move_place_meeple_pass(query)
 
 
@@ -268,9 +242,6 @@ def brute_force_tile(
     game: Game, bot_state: BotState, query: QueryPlaceTile
 ) -> MovePlaceTile:
     grid = game.state.map._grid
-    height = len(grid)
-    width = len(grid[0]) if height > 0 else 0
-
     directions = {
         (0, 1): "top",
         (1, 0): "right",
@@ -284,8 +255,8 @@ def brute_force_tile(
 
     # assert bot_state.last_tile
 
-    for y in range(height):
-        for x in range(width):
+    for y in range(70, 90):
+        for x in range(70, 90):
             if grid[y][x] is not None:
                 print(f"Checking if tile can be placed near tile - {grid[y][x]}")
                 for tile_index, tile in enumerate(game.state.my_tiles):
