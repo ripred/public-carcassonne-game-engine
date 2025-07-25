@@ -142,29 +142,25 @@ class Tile:
 
     @staticmethod
     def get_starting_tile() -> "Tile":
-        if not Tile.starting_tile:
-            Tile.starting_tile = Tile(
-                tile_id="RS",
-                left_edge=StructureType.GRASS,
-                right_edge=StructureType.GRASS,
-                top_edge=StructureType.RIVER,
-                bottom_edge=StructureType.GRASS,
-                modifiers=[TileModifier.RIVER],
-            )
-        return Tile.starting_tile
+        return Tile(
+            tile_id="RS",
+            left_edge=StructureType.GRASS,
+            right_edge=StructureType.GRASS,
+            top_edge=StructureType.RIVER,
+            bottom_edge=StructureType.GRASS,
+            modifiers=[TileModifier.RIVER],
+        )
 
     @staticmethod
     def get_river_end_tile() -> "Tile":
-        if not Tile.river_end_tile:
-            Tile.river_end_tile = Tile(
-                tile_id="RE",
-                left_edge=StructureType.GRASS,
-                right_edge=StructureType.GRASS,
-                top_edge=StructureType.GRASS,
-                bottom_edge=StructureType.RIVER,
-                modifiers=[TileModifier.RIVER],
-            )
-        return Tile.river_end_tile
+        return Tile(
+            tile_id="RE",
+            left_edge=StructureType.GRASS,
+            right_edge=StructureType.GRASS,
+            top_edge=StructureType.GRASS,
+            bottom_edge=StructureType.RIVER,
+            modifiers=[TileModifier.RIVER],
+        )
 
     def __init__(
         self,
